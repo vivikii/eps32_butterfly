@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>Butterfly C3 控制</title>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --card: #1a2332;
+      --accent: #3b82f6;
+      --accent2: #22c55e;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --danger: #ef4444;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 12px;
+      padding-bottom: 32px;
+    }
+    h1 {
+      font-size: 1.25rem;
+      text-align: center;
+      margin-bottom: 4px;
+    }
+    .page-header {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 4px;
+    }
+    .page-header img {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      object-fit: cover;
+      background: #fff;
+      flex-shrink: 0;
+    }
+    .page-header h1 {
+      margin-bottom: 0;
+    }
+    .sub {
+      text-align: center;
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-bottom: 12px;
+    }
+    .card {
+      background: var(--card);
+      border-radius: 12px;
+      padding: 14px;
+      margin-bottom: 12px;
+    }
+    .row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .status-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      font-size: 0.8rem;
+    }
+    .status-item {
+      background: #0f1419;
+      border-radius: 8px;
+      padding: 8px;
+      text-align: center;
+    }
+    .status-item span {
+      display: block;
+      color: var(--muted);
+      font-size: 0.7rem;
+      margin-bottom: 2px;
+    }
+    .status-item b { font-size: 0.95rem; }
+    .conn-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--danger);
+      display: inline-block;
+      margin-right: 6px;
+    }
+    .conn-dot.on { background: var(--accent2); }
+    button {
+      flex: 1;
+      min-width: calc(33% - 8px);
+      padding: 14px 8px;
+      border: none;
+      border-radius: 10px;
+      background: #243044;
+      color: var(--text);
+      font-size: 0.95rem;
+      font-weight: 600;
+      touch-action: manipulation;
+    }
+    button:active { transform: scale(0.97); }
+    button.primary { background: var(--accent); }
+    button.danger { background: #7f1d1d; }
+    button.success { background: #166534; }
+    button:disabled { opacity: 0.4; }
+    .btn-wide { min-width: 100%; }
+    .slider-row {
+      margin-bottom: 14px;
+    }
+    .slider-row:last-child { margin-bottom: 0; }
+    .slider-head {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.85rem;
+      margin-bottom: 6px;
+    }
+    .slider-head label { color: var(--muted); }
+    .slider-head output { color: var(--accent); font-weight: 700; }
+    input[type=range] {
+      width: 100%;
+      height: 36px;
+      accent-color: var(--accent);
+    }
+    .log {
+      font-size: 0.72rem;
+      color: var(--muted);
+      word-break: break-all;
+      max-height: 48px;
+      overflow: hidden;
+    }
+    details {
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-top: 8px;
+    }
+    details summary { cursor: pointer; color: var(--accent); }
+  </style>
+</head>
+<body>
+  <div class="page-header">
+    <img src="nefu-logo.png" alt="东北林业大学">
+    <h1>🦋 Butterfly C3</h1>
+  </div>
+  <p class="sub">Web Bluetooth · 按键 + 滑条调参</p>
+
+  <div class="card">
+    <div class="row" style="margin-bottom:10px">
+      <span><span id="dot" class="conn-dot"></span><span id="connText">未连接</span></span>
+    </div>
+    <div class="row">
+      <button id="btnConnect" class="primary btn-wide">连接 Butterfly_C3</button>
+      <button id="btnDisconnect" class="danger btn-wide" disabled style="display:none">断开连接</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="status-grid">
+      <div class="status-item"><span>状态</span><b id="stRun">-</b></div>
+      <div class="status-item"><span>模式</span><b id="stMode">-</b></div>
+      <div class="status-item"><span>轨迹点</span><b id="stPt">-</b></div>
+      <div class="status-item"><span>左中立 cl</span><b id="stCl">-</b></div>
+      <div class="status-item"><span>右中立 cr</span><b id="stCr">-</b></div>
+      <div class="status-item"><span>幅度 fd</span><b id="stFd">-</b></div>
+      <div class="status-item"><span>延时 ys</span><b id="stYs">-</b></div>
+    </div>
+    <p class="log" id="log">等待连接…</p>
+  </div>
+
+  <div class="card">
+    <div class="row">
+      <button class="motion success" data-cmd="S" disabled>开始 S</button>
+      <button class="motion" data-cmd="P" disabled>停止 P</button>
+      <button class="motion" data-cmd="H" disabled>中立 H</button>
+      <button class="motion" data-cmd="N" disabled>直飞 N</button>
+      <button class="motion" data-cmd="L" disabled>左转 L</button>
+      <button class="motion" data-cmd="R" disabled>右转 R</button>
+      <button class="motion" data-cmd="U" disabled>上升 U</button>
+      <button class="motion" data-cmd="D" disabled>下降 D</button>
+      <button class="motion" data-cmd="?" disabled>刷新 ?</button>
+      <button class="motion" data-cmd="reset" disabled>重置</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="slider-row">
+      <div class="slider-head"><label>左翅中立 cl (GPIO6, μs)</label><output id="valCl">1640</output></div>
+      <input type="range" id="slCl" min="1200" max="2000" step="5" value="1640" disabled>
+    </div>
+    <div class="slider-row">
+      <div class="slider-head"><label>右翅中立 cr (GPIO4, μs)</label><output id="valCr">1640</output></div>
+      <input type="range" id="slCr" min="1200" max="2000" step="5" value="1640" disabled>
+    </div>
+    <div class="slider-row">
+      <div class="slider-head"><label>幅度 fd (μs)</label><output id="valFd">600</output></div>
+      <input type="range" id="slFd" min="0" max="900" step="5" value="600" disabled>
+    </div>
+    <div class="slider-row">
+      <div class="slider-head"><label>速度 ys (μs/点，越小越快)</label><output id="valYs">10000</output></div>
+      <input type="range" id="slYs" min="1000" max="30000" step="500" value="10000" disabled>
+    </div>
+    <div class="slider-row">
+      <div class="slider-head"><label>转向差 turn</label><output id="valTurn">150</output></div>
+      <input type="range" id="slTurn" min="0" max="400" step="5" value="150" disabled>
+    </div>
+    <div class="slider-row">
+      <div class="slider-head"><label>升降幅度 climb</label><output id="valClimb">100</output></div>
+      <input type="range" id="slClimb" min="0" max="300" step="5" value="100" disabled>
+    </div>
+    <div class="slider-row">
+      <div class="slider-head"><label>升降速度 cspeed</label><output id="valCspeed">2000</output></div>
+      <input type="range" id="slCspeed" min="0" max="8000" step="100" value="2000" disabled>
+    </div>
+  </div>
+
+  <details>
+    <summary>使用说明（必读）</summary>
+    <p style="margin-top:8px;line-height:1.5">
+      1. 请用 <b>Android 手机 Chrome</b> 打开本页（iPhone Safari 不支持 Web Bluetooth）。<br>
+      2. 须通过 <b>HTTPS</b> 访问（不能双击本地 html 文件）。可用 GitHub Pages 部署，或电脑运行：<br>
+      <code>npx serve web -p 3000</code> 再用 ngrok 提供 https 链接。<br>
+      3. 连接后拖滑条会实时发送参数；扑翼中也可调参。<br>
+      4. 设备名：<b>Butterfly_C3</b>
+    </p>
+  </details>
+
+  <script>
+    const SERVICE_UUID = '4fafc201-1fb5-459e-8fcc-c5c9c331914b';
+    const CHAR_UUID = 'beb5483e-36e1-4688-b7f5-ea07361b26a8';
+
+    let device, characteristic;
+    let syncingFromDevice = false;
+    let throttleTimer = null;
+
+    const $ = (id) => document.getElementById(id);
+    const log = (msg) => { $('log').textContent = msg; };
+
+    const sliders = [
+      { key: 'cl',     sl: 'slCl',     val: 'valCl',     st: 'stCl' },
+      { key: 'cr',     sl: 'slCr',     val: 'valCr',     st: 'stCr' },
+      { key: 'fd',     sl: 'slFd',     val: 'valFd',     st: 'stFd' },
+      { key: 'ys',     sl: 'slYs',     val: 'valYs',     st: 'stYs' },
+      { key: 'turn',   sl: 'slTurn',   val: 'valTurn',   st: null },
+      { key: 'climb',  sl: 'slClimb',  val: 'valClimb',  st: null },
+      { key: 'cspeed', sl: 'slCspeed', val: 'valCspeed', st: null },
+    ];
+
+    function setConnected(on) {
+      $('dot').classList.toggle('on', on);
+      $('connText').textContent = on ? (device?.name || 'Butterfly_C3') : '未连接';
+      $('btnConnect').style.display = on ? 'none' : 'block';
+      $('btnDisconnect').style.display = on ? 'block' : 'none';
+      $('btnDisconnect').disabled = !on;
+      document.querySelectorAll('.motion, input[type=range]').forEach(el => {
+        el.disabled = !on;
+      });
+    }
+
+    async function sendCmd(text) {
+      if (!characteristic) return;
+      const data = new TextEncoder().encode(text);
+      try {
+        // 使用带响应写入，与 ESP32 BLE 栈更稳定
+        await characteristic.writeValue(data);
+        log('→ ' + text);
+      } catch (e) {
+        log('发送失败: ' + e.message);
+      }
+    }
+
+    let sending = false;
+    async function sendCmdSafe(text) {
+      if (sending) return;
+      sending = true;
+      try {
+        await sendCmd(text);
+      } finally {
+        setTimeout(() => { sending = false; }, 200);
+      }
+    }
+
+    function parseStatus(text) {
+      const map = {};
+      text.split(',').forEach(part => {
+        const i = part.indexOf(':');
+        if (i > 0) map[part.slice(0, i)] = part.slice(i + 1);
+      });
+      return map;
+    }
+
+    const modeNames = { N: '直飞', L: '左转', R: '右转', U: '上升', D: '下降', S: '停止' };
+
+    function applyStatus(raw) {
+      const s = parseStatus(raw);
+      if (!s.run) return;
+
+      $('stRun').textContent = s.run === '1' ? '扑翼中' : '停止';
+      $('stMode').textContent = modeNames[s.mode] || s.mode || '-';
+      $('stPt').textContent = s.pt ?? '-';
+      $('stCl').textContent = s.cl ?? '-';
+      $('stCr').textContent = s.cr ?? '-';
+      $('stFd').textContent = s.fd ?? '-';
+      $('stYs').textContent = s.ys ?? '-';
+      log('← ' + raw);
+
+      syncingFromDevice = true;
+      const vals = { cl: s.cl, cr: s.cr, fd: s.fd, ys: s.ys, turn: s.turn, climb: s.climb, cspeed: s.cspeed };
+      sliders.forEach(({ key, sl, val }) => {
+        if (vals[key] !== undefined) {
+          $(sl).value = vals[key];
+          $(val).textContent = vals[key];
+        }
+      });
+      syncingFromDevice = false;
+    }
+
+    function onNotify(event) {
+      const dec = new TextDecoder('utf-8');
+      applyStatus(dec.decode(event.target.value));
+    }
+
+    async function connect() {
+      if (!navigator.bluetooth) {
+        alert('此浏览器不支持 Web Bluetooth。请用 Android Chrome 并通过 HTTPS 打开本页。');
+        return;
+      }
+      try {
+        device = await navigator.bluetooth.requestDevice({
+          filters: [
+            { name: 'Butterfly_C3' },
+            { services: [SERVICE_UUID] }
+          ],
+          optionalServices: [SERVICE_UUID]
+        });
+        device.addEventListener('gattserverdisconnected', onDisconnect);
+
+        const server = await device.gatt.connect();
+        const service = await server.getPrimaryService(SERVICE_UUID);
+        characteristic = await service.getCharacteristic(CHAR_UUID);
+        await characteristic.startNotifications();
+        characteristic.addEventListener('characteristicvaluechanged', onNotify);
+
+        setConnected(true);
+        log('已连接，正在读取状态…');
+        await sendCmdSafe('?');
+      } catch (e) {
+        if (e.name !== 'NotFoundError') log('连接失败: ' + e.message);
+      }
+    }
+
+    function onDisconnect() {
+      characteristic = null;
+      setConnected(false);
+      log('已断开');
+    }
+
+    function disconnect() {
+      if (device?.gatt?.connected) device.gatt.disconnect();
+      else onDisconnect();
+    }
+
+    function scheduleParamSend(key, value) {
+      if (syncingFromDevice) return;
+      const outMap = { cl: 'valCl', cr: 'valCr', fd: 'valFd', ys: 'valYs', turn: 'valTurn', climb: 'valClimb', cspeed: 'valCspeed' };
+      $(outMap[key]).textContent = value;
+      clearTimeout(throttleTimer);
+      throttleTimer = setTimeout(() => sendCmdSafe(`${key}:${value}`), 200);
+    }
+
+    $('btnConnect').addEventListener('click', connect);
+    $('btnDisconnect').addEventListener('click', disconnect);
+
+    document.querySelectorAll('.motion').forEach(btn => {
+      btn.addEventListener('click', () => sendCmdSafe(btn.dataset.cmd));
+    });
+
+    sliders.forEach(({ key, sl }) => {
+      $(sl).addEventListener('input', (e) => scheduleParamSend(key, e.target.value));
+    });
+  </script>
+</body>
+</html>
