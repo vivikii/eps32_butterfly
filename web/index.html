@@ -104,6 +104,11 @@
       touch-action: manipulation;
     }
     button:active { transform: scale(0.97); }
+    button.pressed {
+      background: var(--accent2) !important;
+      color: #0f1419;
+      transform: scale(0.97);
+    }
     button.primary { background: var(--accent); }
     button.danger { background: #7f1d1d; }
     button.success { background: #166534; }
@@ -173,7 +178,7 @@
 
   <div class="card">
     <div class="row">
-      <button class="motion success" data-cmd="S" disabled>开始 S</button>
+      <button class="motion" data-cmd="S" disabled>开始 S</button>
       <button class="motion" data-cmd="P" disabled>停止 P</button>
       <button class="motion" data-cmd="H" disabled>中立 H</button>
       <button class="motion" data-cmd="N" disabled>直飞 N</button>
@@ -373,6 +378,17 @@
 
     $('btnConnect').addEventListener('click', connect);
     $('btnDisconnect').addEventListener('click', disconnect);
+
+    function bindPressFeedback(btn) {
+      const pressOn = () => { if (!btn.disabled) btn.classList.add('pressed'); };
+      const pressOff = () => btn.classList.remove('pressed');
+      btn.addEventListener('pointerdown', pressOn);
+      btn.addEventListener('pointerup', pressOff);
+      btn.addEventListener('pointerleave', pressOff);
+      btn.addEventListener('pointercancel', pressOff);
+    }
+
+    document.querySelectorAll('.motion, #btnConnect, #btnDisconnect').forEach(bindPressFeedback);
 
     document.querySelectorAll('.motion').forEach(btn => {
       btn.addEventListener('click', () => sendCmdSafe(btn.dataset.cmd));
